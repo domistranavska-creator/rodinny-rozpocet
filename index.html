@@ -34,7 +34,7 @@
 >
 <script>
   // 🌐 Globálny endpoint pre všetky volania do Google Sheets
-  window.GS_API_URL = 'https://script.google.com/macros/s/AKfycbwIhVUXlSN5Lpqqvkf7jcWsXZYGvOuXmhsPg5pxtv0KmJlXl0rWJ0g5uBUp5DbzHBvc/exec/exec';
+  window.GS_API_URL = 'https://script.google.com/macros/s/AKfycbw8RLXoRAY5E1akfWzYrrZXZlZ_FbgDMheCUgXtA3Iji5PfHBOksJlKXsacfZ1o3cgR/exec';
 </script>
 
 <script>
@@ -4643,7 +4643,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 <!-- === GOOGLE SHEETS  ADAPTER (injected) === -->
 <script>
 // === CONFIG: Paste your Web App URL (ends with /exec) ===
-const API_URL = window.GS_API_URL || 'https://script.google.com/macros/s/AKfycbwIhVUXlSN5Lpqqvkf7jcWsXZYGvOuXmhsPg5pxtv0KmJlXl0rWJ0g5uBUp5DbzHBvc/exec'; // TODO: replace with your Apps Script /exec URL
+const API_URL = window.GS_API_URL || 'https://script.google.com/macros/s/AKfycbw8RLXoRAY5E1akfWzYrrZXZlZ_FbgDMheCUgXtA3Iji5PfHBOksJlKXsacfZ1o3cgR/exec'; // TODO: replace with your Apps Script /exec URL
 
 // --- GET ---
 async function apiList(fetch(window.GS_API_URL + '?action=list')
@@ -5142,212 +5142,8 @@ window.addEventListener('load', () => {
   }, { capture: true });
 })();
 </script>
-<script>
-(function DeleteBridge(){
-  // 🔗 Apps Script WebApp URL (nová /exec)
-  const API_URL = 'https://script.google.com/macros/s/AKfycbwIhVUXlSN5Lpqqvkf7jcWsXZYGvOuXmhsPg5pxtv0KmJlXl0rWJ0g5uBUp5DbzHBvc/exec';
-  if (!API_URL) { console.warn('[DelBridge] API_URL chýba'); return; }
 
-  // Helpers
-  const todayISO = () => new Date().toISOString().slice(0,10);
-  function parseAmt(v){
-    if (typeof v==='number') return v;
-    const s = String(v||'').trim().replace(/\s+/g,'').replace(/,/g,'.');
-    const m = s.match(/-?\d+(?:\.\d+)?/);
-    const n = m ? Number(m[0]) : NaN;
-    return Number.isFinite(n) ? n : 0;
-  }
-  function activePayer(){
-    try{
-      const b = document.querySelector('.payerBtn.active,[data-id].payerBtn.active');
-      const id = b && (b.dataset.id || b.getAttribute('data-id')) || 'dominika';
-      return id === 'peto' ? 'Peťo' : 'Dominika';
-    }catch{ return 'Dominika'; }
-  }
-  function activeCategory(){
-    const chip = document.querySelector('#catChips .chipbtn.selected, #catChips .chipbtn.active, .chipbtn.selected, .chipbtn.active');
-    return chip ? (chip.textContent||'').trim() : 'ostatné';
-  }
 
-  // Vyťahovanie údajov položky z riadku UI
-  function extractItemData(fromEl){
-    const row = fromEl.closest('.item, .entry, .list-row, .tx-row, li, tr, .card, .line') || document.body;
-
-    let name = '';
-    const nameEl = row.querySelector('[data-name], .name, .nm, .title, .txt, .desc, .label, .item-name') ||
-                   row.querySelector('span,div,p');
-    if (nameEl) name = (nameEl.textContent || '').trim();
-
-    let amt = NaN;
-    const amtEl = row.querySelector('[data-amount], .amount, .amt, .value, .sum, .price');
-    if (amtEl) amt = parseAmt(amtEl.textContent);
-    if (!Number.isFinite(amt) || !(amt>0)) {
-      const formAmt = document.getElementById('f_amount') || document.getElementById('amount');
-      amt = parseAmt(formAmt && formAmt.value);
-    }
-
-    let date = todayISO();
-    const dateEl = row.querySelector('time,[data-date],.date,input[type="date"]');
-    if (dateEl) {
-      const raw = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date') || dateEl.value || dateEl.textContent;
-      const s = (raw||'').trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) date = s;
-    } else {
-      const formDate = document.getElementById('f_date');
-      if (formDate && /^\d{4}-\d{2}-\d{2}$/.test(formDate.value||'')) date = formDate.value;
-    }
-
-    return {
-      owner:    activePayer(),
-      category: activeCategory(),
-      name, amount: amt, date,
-      inCart:   false
-    };
-  }
-
-  // Odoslanie delete do Apps Scriptu
-  async function sendDelete(where){
-    try{
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain'},
-        keepalive: true,
-        body: JSON.stringify({ action: 'deleteByFields', where })
-      });
-      console.log('[DelBridge] deleteByFields →', where);
-    }catch(err){
-      console.warn('[DelBridge] delete fail', err);
-    }
-  }
-
-  // Počúvaj klik na „kôš“
-  const DELETE_SELECTORS = [
-    '[data-action="delete"]',
-    '.delete','.del','.trash','.remove','.btn-delete','.icon-trash',
-    '[aria-label="Delete"]','[title="Delete"]'
-  ].join(',');
-
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest(DELETE_SELECTORS);
-    if (!btn) return;
-    // nepřekážať pôvodnému UI – po 0 ms len pošli delete
-    setTimeout(()=>{
-      const where = extractItemData(btn);
-      if (where.amount > 0 && where.name) sendDelete(where);
-      else console.warn('[DelBridge] preskočené (chýba name alebo amount)');
-    }, 0);
-  }, {capture:false, passive:true});
-
-  console.log('[DelBridge] ready');
-})();
-</script>
-<script>
-(function DeleteBridge(){
-  // Tvoja aktuálna /exec URL
-  const API_URL = 'https://script.google.com/macros/s/AKfycbwIhVUXlSN5Lpqqvkf7jcWsXZYGvOuXmhsPg5pxtv0KmJlXl0rWJ0g5uBUp5DbzHBvc/exec';
-
-  const todayISO = () => new Date().toISOString().slice(0,10);
-  function parseAmt(v){
-    if (typeof v==='number') return v;
-    const s = String(v||'').trim().replace(/\s+/g,'').replace(/,/g,'.');
-    const m = s.match(/-?\d+(?:\.\d+)?/);
-    const n = m ? Number(m[0]) : NaN;
-    return Number.isFinite(n) ? n : 0;
-  }
-  function activePayer(){
-    try{
-      const b = document.querySelector('.payerBtn.active,[data-id].payerBtn.active');
-      const id = b && (b.dataset.id || b.getAttribute('data-id')) || 'dominika';
-      return id === 'peto' ? 'Peťo' : 'Dominika';
-    }catch{ return 'Dominika'; }
-  }
-  function activeCategory(){
-    const chip = document.querySelector('#catChips .chipbtn.selected, #catChips .chipbtn.active, .chipbtn.selected, .chipbtn.active');
-    return chip ? (chip.textContent||'').trim() : 'ostatné';
-  }
-
-  function extractItemData(btn){
-    const row = btn.closest('[data-id], .item, .entry, .list-row, .tx-row, li, tr, .card, .line') || document.body;
-
-    // 1) ak vieme nájsť priamo ID, používame deleteById (najistejšie)
-    const idEl = row.querySelector('[data-id], .item-id, [name="id"], input[type="hidden"][value^="id_"]');
-    if (idEl){
-      const id = idEl.getAttribute('data-id') || idEl.value || idEl.textContent;
-      if (id && /^id_/.test(id)) return { id: String(id).trim() };
-    }
-
-    // 2) fallback: mazanie podľa polí
-    let name = '';
-    const nameEl = row.querySelector('[data-name], .name, .nm, .title, .txt, .desc, .label, .item-name')
-                || row.querySelector('span,div,p,strong,b');
-    if (nameEl) name = (nameEl.textContent || '').trim();
-
-    let amount = NaN;
-    const amtEl = row.querySelector('[data-amount], .amount, .amt, .value, .sum, .price');
-    if (amtEl) amount = parseAmt(amtEl.textContent);
-    if (!(amount>0)) {
-      const formAmt = document.getElementById('f_amount') || document.getElementById('amount');
-      amount = parseAmt(formAmt && formAmt.value);
-    }
-
-    let date = todayISO();
-    const dateEl = row.querySelector('time,[data-date],.date,input[type="date"]');
-    if (dateEl) {
-      const raw = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date') || dateEl.value || dateEl.textContent;
-      const s = (raw||'').trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) date = s;
-    } else {
-      const formDate = document.getElementById('f_date');
-      if (formDate && /^\d{4}-\d{2}-\d{2}$/.test(formDate.value||'')) date = formDate.value;
-    }
-
-    return { owner:activePayer(), category:activeCategory(), name, amount, date, inCart:false };
-  }
-
-  async function sendDelete(payload){
-    try{
-      // Pozn.: pri otváraní súboru z disku (origin 'null') CORS blokuje odpoveď.
-      // Pre mazanie nám stačí "fire-and-forget": použijeme 'no-cors' + keepalive.
-      await fetch(API_URL, {
-        method: 'POST',
-        mode: 'no-cors',       // aby to neblokol CORS (odpoveď bude "opaque", nám nevadí)
-        keepalive: true,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      console.log('[DelBridge] sent', payload);
-    }catch(err){
-      console.warn('[DelBridge] fetch fail', err);
-    }
-  }
-
-  const SELECTORS = [
-    '[data-action="delete"]',
-    '.delete','.del','.trash','.remove','.btn-delete','.icon-trash',
-    '[aria-label="Delete"]','[title="Delete"]'
-  ].join(',');
-
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest(SELECTORS);
-    if (!btn) return;
-
-    // nepodkopávame pôvodný handler – po 0 ms len pošleme delete
-    setTimeout(()=>{
-      const where = extractItemData(btn);
-      if (where.id){
-        sendDelete({ action: 'delete', id: where.id });
-      } else if (where.name && where.amount > 0) {
-        // POZOR: tvoje doPost berie akciu lowercase → 'deletebyfields'
-        sendDelete({ action: 'deletebyfields', where });
-      } else {
-        console.warn('[DelBridge] preskočené (chýba id alebo name/amount)');
-      }
-    }, 0);
-  }, {capture:false, passive:true});
-
-  console.log('[DelBridge] ready');
-})();
-</script>
 
 
 <!-- Robust monthly limit sync (delete+add, idempotent) -->
@@ -5684,6 +5480,294 @@ document.addEventListener('DOMContentLoaded', function(){
   console.log('[NoEdit] edit controls removed');
 });
 </script>
+<script>
+(function(){
+  // pomocné
+  const API = () => window.GS_API_URL;
+  const toNum = v => {
+    const s = String(v||'').replace(/\s+/g,'').replace(',','.');
+    const m = s.match(/-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) : NaN;
+  };
 
+  async function apiDeleteByFields(where){
+    const res = await fetch(API(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action:'deletebyfields', where })
+    });
+    try { return await res.json(); } catch(_){ return { ok:true }; }
+  }
+
+  // Fallback mazanie: ak riadok nemá data-id, pošleme deletebyfields
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action="delete"], .btn-delete, .delete, .trash, .icon-trash');
+    if (!btn) return;
+
+    const row = btn.closest('[data-id], .mRow, .item, li, tr, .line, .entry') || document.body;
+    const id = row.getAttribute && row.getAttribute('data-id');
+
+    if (id) return; // tvoje primárne mazanie podľa ID nechaj tak (už funguje)
+
+    // --- vyrobíme `where` z textu v riadku ---
+    const nameEl = row.querySelector('[data-name], .name, .title, .label, .desc, .item-name') || row.querySelector('span,div,p');
+    const amtEl  = row.querySelector('[data-amount], .amount, .sum, .price, .value');
+    const dateEl = row.querySelector('time,[data-date],.date,input[type="date"]');
+
+    const name  = (nameEl && nameEl.textContent || '').trim();
+    const amount= toNum(amtEl && (amtEl.textContent || amtEl.value));
+    let date    = '';
+    if (dateEl){
+      const raw = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date') || dateEl.value || dateEl.textContent;
+      const s = (raw||'').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) date = s;
+    }
+
+    // kto platil / kategória – podľa aktívnych prvkov v tvojej appke
+    const payerBtn = document.querySelector('.payerBtn.active,[data-id].payerBtn.active');
+    const payerId  = payerBtn && (payerBtn.dataset.id || payerBtn.getAttribute('data-id')) || 'peto';
+    const owner    = (payerId === 'dominika') ? 'Dominika' : 'Peťo';
+    const chip     = document.querySelector('#catChips .chipbtn.selected, #catChips .chipbtn.active');
+    const category = chip ? (chip.textContent || '').trim() : '';
+
+    const where = { name, amount, date, owner, category };
+    // minimálne potrebujeme aspoň name + amount
+    if (!name || !(amount > 0)) {
+      console.warn('[deletebyfields] chýba name alebo amount → preskakujem', where);
+      return;
+    }
+
+    // opticky „disabluj“ riadok
+    row.style.opacity = '0.5';
+    try {
+      const out = await apiDeleteByFields(where);
+      if (out && out.ok) {
+        row.remove();
+      } else {
+        row.style.opacity = '1';
+        alert('Nepodarilo sa zmazať (fields). Skús znova.');
+        console.warn(out);
+      }
+    } catch (err) {
+      row.style.opacity = '1';
+      console.error('deletebyfields fail', err);
+    }
+  });
+})();
+</script>
+<script>
+(function(){
+  const API = () => window.GS_API_URL;
+
+  // pomocné
+  const toNum = v => {
+    const s = String(v||'').replace(/\s+/g,'').replace(',', '.');
+    const m = s.match(/-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) : NaN;
+  };
+
+  async function apiDelete(id){
+    const r = await fetch(API(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action:'delete', id })
+    });
+    try { return await r.json(); } catch(_) { return { ok:true }; }
+  }
+  async function apiDeleteByFields(where){
+    const r = await fetch(API(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action:'deletebyfields', where })
+    });
+    try { return await r.json(); } catch(_) { return { ok:true }; }
+  }
+
+  // rozpoznanie „delete“ tlačidla
+  function isDeleteBtn(el){
+    if (!el) return false;
+    if (el.matches('.delete,.trash,.icon-trash,[data-action="delete"]')) return true;
+    const t = (el.getAttribute('title')||el.getAttribute('aria-label')||'').toLowerCase();
+    if (/(delete|zmaž|zmazat|zmazať|vymaž|vymazat)/.test(t)) return true;
+    const txt = (el.textContent||'').toLowerCase();
+    if (/[🗑]|delete|zmaž|zmazat|zmazať|vymaž|vymazat/.test(txt)) return true;
+    return false;
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button, a, i, span, svg');
+    if (!btn || !isDeleteBtn(btn)) return;
+
+    const row = btn.closest('[data-id], .mRow, .item, li, tr, .line, .entry') || document.body;
+    const id  = row.getAttribute && row.getAttribute('data-id');
+
+    // 1) Prefer delete podľa ID (najpresnejšie)
+    if (id) {
+      try {
+        row.style.opacity = '0.5';
+        const out = await apiDelete(id);
+        if (out && out.ok) { row.remove(); }
+        else { row.style.opacity='1'; alert('Nepodarilo sa zmazať podľa ID'); console.warn(out); }
+      } catch(err){ row.style.opacity='1'; console.error(err); alert('Mazanie zlyhalo'); }
+      return;
+    }
+
+    // 2) Fallback: poskladáme „where“ z riadku
+    const nameEl = row.querySelector('[data-name], .name, .title, .label, .desc, .item-name') || row.querySelector('span,div,p,strong,b');
+    const amtEl  = row.querySelector('[data-amount], .amount, .sum, .price, .value');
+    const dateEl = row.querySelector('time,[data-date],.date,input[type="date"]');
+
+    const name   = (nameEl?.textContent || '').trim();
+    const amount = toNum(amtEl?.textContent || amtEl?.value);
+    let date = '';
+    if (dateEl) {
+      const raw = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date') || dateEl.value || dateEl.textContent;
+      const s = (raw||'').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) date = s;
+    }
+
+    // kto platil / kategória – podľa aktívnych prvkov v tvojej appke
+    const payerBtn = document.querySelector('.payerBtn.active,[data-id].payerBtn.active');
+    const pid = (payerBtn?.dataset.id || payerBtn?.getAttribute('data-id')) || 'peto';
+    const owner = (pid === 'dominika') ? 'Dominika' : 'Peťo';
+    const chip = document.querySelector('#catChips .chipbtn.selected, #catChips .chipbtn.active');
+    const category = chip ? (chip.textContent||'').trim() : '';
+
+    if (!name || !(amount>0)) {
+      alert('Neviem určiť položku na zmazanie (chýba názov alebo suma).');
+      console.warn({name,amount,date,owner,category});
+      return;
+    }
+
+    try {
+      row.style.opacity='0.5';
+      const out = await apiDeleteByFields({ name, amount, date, owner, category });
+      if (out && out.ok) { row.remove(); }
+      else { row.style.opacity='1'; alert('Nepodarilo sa zmazať (fallback)'); console.warn(out); }
+    } catch (err) {
+      row.style.opacity='1';
+      console.error(err);
+      alert('Mazanie zlyhalo (fallback)');
+    }
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  const API = () => window.GS_API_URL;
+
+  const toNum = v => {
+    const s = String(v||'').replace(/\s+/g,'').replace(',', '.');
+    const m = s.match(/-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) : NaN;
+  };
+
+  async function post(action, payload){
+    const r = await fetch(API(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, ...payload })
+    });
+    try { return await r.json(); } catch(_) { return { ok:true }; }
+  }
+  const apiDelete = (id)=>post('delete',{id});
+  const apiDeleteByFields = (where)=>post('deletebyfields',{where});
+
+  function isDeleteBtn(el){
+    if (!el) return false;
+    if (el.matches('.delete,.trash,.icon-trash,.btn-delete,[data-action="delete"]')) return true;
+    const title = (el.getAttribute('title')||el.getAttribute('aria-label')||'').toLowerCase();
+    if (/(delete|zmaž|zmazat|zmazať|vymaž|vymazat)/.test(title)) return true;
+    const txt = (el.textContent||'').toLowerCase();
+    if (/[🗑]|delete|zmaž|zmazat|zmazať|vymaž|vymazat/.test(txt)) return true;
+    return false;
+  }
+
+  function extractWhere(row, btn){
+    const getData = (el, k) => el && (el.dataset && (el.dataset[k] || el.dataset[k.toLowerCase()])) || null;
+    const idAttr = (row.getAttribute && row.getAttribute('data-id')) || getData(row,'id') || getData(btn,'id');
+
+    let name = getData(btn,'name') || getData(row,'name');
+    let amount = Number(getData(btn,'amount') || getData(row,'amount'));
+    let date = getData(btn,'date') || getData(row,'date');
+
+    const nameEl = row.querySelector('[data-name], .name, .title, .label, .desc, .item-name') || row.querySelector('strong,b,span,div,p');
+    if (!name && nameEl) name = (nameEl.textContent || '').trim();
+
+    const amtEl = row.querySelector('[data-amount], .amount, .sum, .price, .value');
+    if (!(amount>0) && amtEl) amount = toNum(amtEl.textContent || amtEl.value);
+
+    const dateEl = row.querySelector('time,[data-date],.date,input[type="date"]');
+    if (!date && dateEl) {
+      const raw = dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date') || dateEl.value || dateEl.textContent;
+      const s = (raw||'').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) date = s;
+    }
+
+    const payerBtn = document.querySelector('.payerBtn.active,[data-id].payerBtn.active');
+    const pid = (payerBtn?.dataset.id || payerBtn?.getAttribute('data-id')) || 'peto';
+    const owner = (pid === 'dominika') ? 'Dominika' : 'Peťo';
+    const chip = document.querySelector('#catChips .chipbtn.selected, #catChips .chipbtn.active');
+    const category = chip ? (chip.textContent||'').trim() : '';
+
+    return { id: idAttr, name, amount, date, owner, category };
+  }
+
+  async function ensureWhereFilled(where){
+    let { name, amount, date, owner, category } = where;
+    if (!name) {
+      name = prompt('Názov položky na zmazanie (napr. „Mlieko“):', name || '');
+      if (name) name = name.trim();
+    }
+    if (!(amount>0)) {
+      const a = prompt('Suma položky na zmazanie (napr. 2.49):', '');
+      const n = toNum(a);
+      if (Number.isFinite(n) && n>0) amount = n;
+    }
+    return { name, amount, date, owner, category };
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button, a, i, span, svg');
+    if (!btn || !isDeleteBtn(btn)) return;
+
+    const row = btn.closest('[data-id], .mRow, .item, li, tr, .line, .entry') || document.body;
+    const where0 = extractWhere(row, btn);
+
+    if (where0.id) {
+      try {
+        row.style.opacity = '0.5';
+        const out = await apiDelete(where0.id);
+        if (out && out.ok) { row.remove(); }
+        else { row.style.opacity='1'; alert('Nepodarilo sa zmazať podľa ID'); console.warn(out); }
+      } catch(err){ row.style.opacity='1'; console.error(err); alert('Mazanie zlyhalo'); }
+      return;
+    }
+
+    let where = { ...where0 };
+    if (!where.name or !(where.amount>0)) {
+      where = await ensureWhereFilled(where);
+      if (!where.name or !(where.amount>0)) {
+        alert('Stále nemám názov alebo sumu – mazanie zrušené.');
+        console.warn('[deletebyfields] nedostatok údajov', where0, where);
+        return;
+      }
+    }
+
+    try {
+      row.style.opacity='0.5';
+      const out = await apiDeleteByFields(where);
+      if (out and out.ok) { row.remove(); }
+      else { row.style.opacity='1'; alert('Nepodarilo sa zmazať (fallback)'); console.warn(out); }
+    } catch (err) {
+      row.style.opacity='1';
+      console.error(err);
+      alert('Mazanie zlyhalo (fallback)');
+    }
+  });
+})();
+</script>
 </body>
 </html>
